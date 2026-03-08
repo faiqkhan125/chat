@@ -790,6 +790,11 @@ function NexusApp() {
   const [activeTab, setActiveTab] = useState('chats');
   const [contacts, setContacts] = useState<User[]>([]);
   const [selectedContact, setSelectedContact] = useState<User | null>(null);
+  const selectedContactRef = useRef<User | null>(null);
+
+  useEffect(() => {
+    selectedContactRef.current = selectedContact;
+  }, [selectedContact]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -817,7 +822,21 @@ function NexusApp() {
       socketRef.current.emit('join', user.id);
 
       socketRef.current.on('receive_message', (msg: Message) => {
-        setMessages(prev => [...prev, msg]);
+        // Update messages if it's for the selected contact
+        if (
+          (selectedContactRef.current && msg.senderId === selectedContactRef.current.id) ||
+          (selectedContactRef.current && msg.receiverId === selectedContactRef.current.id && msg.senderId === user.id)
+        ) {
+          setMessages(prev => [...prev, msg]);
+        }
+
+        // Update contacts list if it's a new interaction
+        setContacts(prev => {
+          const otherId = msg.senderId === user.id ? msg.receiverId : msg.senderId;
+          if (prev.find(c => c.id === otherId)) return prev;
+          fetchContacts();
+          return prev;
+        });
       });
 
       socketRef.current.on('user_status', (data: { userId: number, status: 'online' | 'offline' }) => {
@@ -915,6 +934,8 @@ function NexusApp() {
     if (selectedContact && user) {
       fetchMessages();
       setShowContactInfo(false);
+    } else {
+      setMessages([]);
     }
   }, [selectedContact]);
 
@@ -1088,12 +1109,13 @@ function NexusApp() {
   };
 
   const fetchContacts = async () => {
+    if (!user) return;
     try {
-      const res = await fetch('/api/users');
+      const res = await fetch(`/api/users?currentUserId=${user.id}`);
       const text = await res.text();
       if (!text) throw new Error("Empty response from /api/users");
       const data = JSON.parse(text);
-      setContacts(data.filter((u: User) => u.id !== user?.id));
+      setContacts(data);
     } catch (err) {
       console.error("fetchContacts error:", err);
     }

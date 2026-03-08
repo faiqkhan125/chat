@@ -235,8 +235,19 @@ async function startServer() {
 
   // --- User Routes ---
   app.get("/api/users", (req, res) => {
-    const users = db.prepare("SELECT id, username, email, country, bio, profilePic FROM users").all();
-    res.json(users);
+    const { currentUserId } = req.query;
+    if (currentUserId) {
+      const users = db.prepare(`
+        SELECT DISTINCT u.id, u.username, u.email, u.country, u.bio, u.profilePic 
+        FROM users u
+        JOIN messages m ON (u.id = m.senderId OR u.id = m.receiverId)
+        WHERE (m.senderId = ? OR m.receiverId = ?) AND u.id != ?
+      `).all(currentUserId, currentUserId, currentUserId);
+      res.json(users);
+    } else {
+      // If no currentUserId, return empty list to hide all users by default
+      res.json([]);
+    }
   });
 
   app.get("/api/users/search", (req, res) => {
