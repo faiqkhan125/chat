@@ -1,0 +1,5 @@
+{
+  "name": "Nexus AI Messenger",
+  "description": "Advanced AI-powered messaging app with gaming communities, automation, and parental controls.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
+}
